@@ -35,13 +35,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     Button btnAccel,btnLight,btnGyro,btnGrav;
     TextView X,Y,Z,AVG;
     String xi, yi, zi, avg;
-    int count =0;
+    int count;
+    int version;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        count=0;
+        version=1;
         if(mSensorManager!=null){
             mSensorManager.unregisterListener(this);
         }
@@ -70,16 +72,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // TODO Auto-generated method stub
         switch (v.getId()){
             case R.id.butnAcceler:
-                mSensorManager.registerListener(this, mAccelorMeter, SensorManager.SENSOR_DELAY_NORMAL);
+                mSensorManager.registerListener(MainActivity.this, mAccelorMeter, SensorManager.SENSOR_DELAY_NORMAL);
+                version=1;
                 break;
             case R.id.butGrav:
-                mSensorManager.registerListener(this, mGrav, SensorManager.SENSOR_DELAY_FASTEST);
+                mSensorManager.registerListener(MainActivity.this, mGrav, SensorManager.SENSOR_DELAY_FASTEST);
+                version=2;
                 break;
             case R.id.butGyro:
-                mSensorManager.registerListener(this, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
+                mSensorManager.registerListener(MainActivity.this, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
+                version=3;
                 break;
             case R.id.butLight:
-                mSensorManager.registerListener(this, mLight, SensorManager.SENSOR_DELAY_FASTEST);
+                mSensorManager.registerListener(MainActivity.this, mLight, SensorManager.SENSOR_DELAY_FASTEST);
+                version=4;
                 break;
         }
 
@@ -103,6 +109,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // The light sensor returns a single value.
         // Many sensors return 3 values, one for each axis.
         Log.d("Inside","SensorChanged");
+        Log.d("Count", String.valueOf(count));
         if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER) {
            storeData(event);
         }
@@ -122,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
     public void storeData(SensorEvent event){
-        DBHelper mHelper = new DBHelper(this);
+        DBHelper mHelper = new DBHelper(this,version);
         SQLiteDatabase db = mHelper.getWritableDatabase();
 
         float lux = event.values[0];
@@ -132,6 +139,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         int accuracy = event.accuracy;
         Sensor sensor = event.sensor;
         Boolean iscount = false;
+        if(count==10)
+            count=0;
         if (count < 10) {
             ContentValues values = new ContentValues();
             values.put(TableSchema.table.COLUMN_NAME_ID, count++);
@@ -165,6 +174,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 double avgi = (Double.parseDouble(xi) + Double.parseDouble(yi) + Double.parseDouble(zi)) / 3;
                 Log.d("Avg", String.valueOf(avgi));
                 avg = String.valueOf(avgi);
+                iscount=false;
                 Intent intent = new Intent(this,Result.class);
                 intent.putExtra("X",xi);
                 intent.putExtra("Y",yi);
@@ -185,7 +195,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onPause() {
         super.onPause();
+        mSensorManager.unregisterListener(this);
     }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
+        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
+        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT));
+    }
+
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
