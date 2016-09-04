@@ -12,6 +12,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
@@ -37,6 +38,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     String xi, yi, zi, avg;
     int count;
     int version;
+    boolean iscount = false;
+    Handler mUiHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,9 +47,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         setContentView(R.layout.activity_main);
         count=0;
         version=1;
-        if(mSensorManager!=null){
-            mSensorManager.unregisterListener(this);
-        }
         // Initializing the Sensor manager to capture the sensor information
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mLight= mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
@@ -73,19 +73,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         switch (v.getId()){
             case R.id.butnAcceler:
                 mSensorManager.registerListener(MainActivity.this, mAccelorMeter, SensorManager.SENSOR_DELAY_NORMAL);
-                version=1;
+
                 break;
             case R.id.butGrav:
                 mSensorManager.registerListener(MainActivity.this, mGrav, SensorManager.SENSOR_DELAY_FASTEST);
-                version=2;
+
                 break;
             case R.id.butGyro:
                 mSensorManager.registerListener(MainActivity.this, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
-                version=3;
+
                 break;
             case R.id.butLight:
                 mSensorManager.registerListener(MainActivity.this, mLight, SensorManager.SENSOR_DELAY_FASTEST);
-                version=4;
+
                 break;
         }
 
@@ -111,26 +111,38 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Log.d("Inside","SensorChanged");
         Log.d("Count", String.valueOf(count));
         if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER) {
-           storeData(event);
+            storeData(event,"Accel");
         }
-       if( event.sensor.getType()==Sensor.TYPE_GYROSCOPE){
-          Log.d("Gyroscope","Entered");
-           storeData(event);
+       if( event.sensor.getType()==Sensor.TYPE_GYROSCOPE) {
+           Log.d("Gyroscope","Entered");
+           storeData(event, "Gyro");
        }
         if( event.sensor.getType()==Sensor.TYPE_GRAVITY){
             Log.d("Gravity","Entered");
-            storeData(event);
+            storeData(event, "Grav");
         }
-        if( event.sensor.getType()==Sensor.TYPE_LIGHT){
+        if( event.sensor.getType()==Sensor.TYPE_LIGHT) {
             Log.d("Light","Entered");
-            storeData(event);
+            storeData(event, "Light");
         }
     }
 
-
-    public void storeData(SensorEvent event){
+    public void storeData(SensorEvent event, String name){
         DBHelper mHelper = new DBHelper(this,version);
         SQLiteDatabase db = mHelper.getWritableDatabase();
+        String tableName = null;
+        if(name.equals("Accel")){
+            tableName = TableSchema.table.TABLE_NAME1;
+        }
+        if(name.equals("Gyro")){
+            tableName = TableSchema.table.TABLE_NAME2;
+        }
+        if(name.equals("Grav")){
+            tableName = TableSchema.table.TABLE_NAME3;
+        }
+        if(name.equals("Light")){
+            tableName = TableSchema.table.TABLE_NAME4;
+        }
 
         float lux = event.values[0];
         float luy = event.values[1];
@@ -138,9 +150,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         long time = event.timestamp;
         int accuracy = event.accuracy;
         Sensor sensor = event.sensor;
-        Boolean iscount = false;
+
+        Log.d("Table Name===", tableName);
+
         if(count==10)
             count=0;
+
+        // Enter the first 10 sensor data only
         if (count < 10) {
             ContentValues values = new ContentValues();
             values.put(TableSchema.table.COLUMN_NAME_ID, count++);
@@ -150,7 +166,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueY, luy);
             values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueZ, luz);
             values.put(TableSchema.table.COLUMN_NAME_Accuracy, accuracy);
-            long newRowId = db.insert(TableSchema.table.TABLE_NAME, null, values);
+            long newRowId = db.insert(tableName, null, values);
             Log.d("RowID", String.valueOf(newRowId));
             Log.d("Sensor Value-->", String.valueOf(lux));
             Log.d("Sensor Accuracy-->", String.valueOf(time));
@@ -159,10 +175,30 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (count == 10)
                 iscount = true;
         }
+        if(iscount)
+             readData(name);
+    }
 
-        if (iscount == true) {
+    public void readData(String name){
+        DBHelper mHelper = new DBHelper(this,version);
+        String tableName = null;
+        if(name.equals("Accel")){
+            tableName = TableSchema.table.TABLE_NAME1;
+        }
+        if(name.equals("Gyro")){
+            tableName = TableSchema.table.TABLE_NAME2;
+        }
+        if(name.equals("Grav")){
+            tableName = TableSchema.table.TABLE_NAME3;
+        }
+        if(name.equals("Light")){
+            tableName = TableSchema.table.TABLE_NAME4;
+        }
+        // To read the data from database whenever iscount = true
+        Log.d("Table Name===", tableName);
             SQLiteDatabase db1 = mHelper.getReadableDatabase();
-            Cursor res = db1.rawQuery("Select * from " + TableSchema.table.TABLE_NAME + " where Id=1", null);
+            Log.d("Table Name-->>>", tableName);
+            Cursor res = db1.rawQuery("Select * from " + tableName + " where Id=1", null);
             res.moveToFirst();
             if (res.getColumnCount() != 0) {
                 xi = res.getString(res.getColumnIndex("SensorValueX"));
@@ -174,17 +210,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 double avgi = (Double.parseDouble(xi) + Double.parseDouble(yi) + Double.parseDouble(zi)) / 3;
                 Log.d("Avg", String.valueOf(avgi));
                 avg = String.valueOf(avgi);
-                iscount=false;
-                Intent intent = new Intent(this,Result.class);
-                intent.putExtra("X",xi);
-                intent.putExtra("Y",yi);
-                intent.putExtra("Z",zi);
-                intent.putExtra("AVG",avg);
+                iscount = false;
+                Intent intent = new Intent(this, Result.class);
+                intent.putExtra("X", xi);
+                intent.putExtra("Y", yi);
+                intent.putExtra("Z", zi);
+                intent.putExtra("AVG", avg);
                 startActivity(intent);
-            }
-            else
+            } else
                 Log.d("------->", "Column Count 0");
-        }
+
     }
 
     @Override
@@ -207,15 +242,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT));
     }
 
-
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-
         if (id == R.id.action_settings) {
             return true;
         }
         return super.onOptionsItemSelected(item );
     }
-
 }

@@ -18,8 +18,8 @@ public class Result extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         String x = getIntent().getStringExtra("X");
-        String y = getIntent().getStringExtra("X");
-        String z = getIntent().getStringExtra("X");
+        String y = getIntent().getStringExtra("Y");
+        String z = getIntent().getStringExtra("Z");
         String avg = getIntent().getStringExtra("AVG");
 
         TextView X =(TextView) findViewById(R.id.X);
