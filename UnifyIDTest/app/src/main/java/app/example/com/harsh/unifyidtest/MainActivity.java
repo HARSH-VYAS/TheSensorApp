@@ -26,42 +26,52 @@ import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.util.ArrayList;
+
+import POJO.SensorData;
 import Schema.DBHelper;
 import Schema.TableSchema;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener,View.OnClickListener {
 
     SensorManager mSensorManager = null;
-    Sensor mLight, mAccelorMeter, mGyro, mGrav;
+    Sensor mLight, mAccelorMeter,mGyro,mGrav;
+    int count1, count2, count3, count4;
+
     Button btnAccel,btnLight,btnGyro,btnGrav;
+    ArrayList<SensorData> sensorD = new ArrayList<SensorData>();
     TextView X,Y,Z,AVG;
     String xi, yi, zi, avg;
-    int count;
     int version;
     boolean iscount = false;
-    Handler mUiHandler;
 
+    DBHelper mHelper;
+    boolean storeGyro = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        count=0;
+        count1=0;
+        count2=0;
+        count3=0;
+        count4=0;
         version=1;
-        // Initializing the Sensor manager to capture the sensor information
+        mHelper = new DBHelper(MainActivity.this,version);
+        //Initializing the Sensor manager to capture the sensor information
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         mLight= mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-        mAccelorMeter = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mGyro= mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        mAccelorMeter = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         mGrav= mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
 
         btnAccel = (Button) findViewById(R.id.butnAcceler);
         btnAccel.setOnClickListener(this);
 
+        btnGyro = (Button) findViewById(R.id.butnGyro);
+        btnGyro.setOnClickListener(this);
+
         btnLight = (Button) findViewById(R.id.butLight);
         btnLight.setOnClickListener(this);
-
-        btnGyro = (Button) findViewById(R.id.butGyro);
-        btnGyro.setOnClickListener(this);
 
         btnGrav = (Button) findViewById(R.id.butGrav);
         btnGrav.setOnClickListener(this);
@@ -73,33 +83,29 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         switch (v.getId()){
             case R.id.butnAcceler:
                 mSensorManager.registerListener(MainActivity.this, mAccelorMeter, SensorManager.SENSOR_DELAY_NORMAL);
-
                 break;
             case R.id.butGrav:
                 mSensorManager.registerListener(MainActivity.this, mGrav, SensorManager.SENSOR_DELAY_FASTEST);
-
                 break;
-            case R.id.butGyro:
+            case R.id.butnGyro:
                 mSensorManager.registerListener(MainActivity.this, mGyro, SensorManager.SENSOR_DELAY_FASTEST);
-
                 break;
             case R.id.butLight:
                 mSensorManager.registerListener(MainActivity.this, mLight, SensorManager.SENSOR_DELAY_FASTEST);
-
                 break;
         }
 
     }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
+        //Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
     @Override
     public final void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Do something here if sensor accuracy changes.
+        //Do something here if sensor accuracy changes.
         Log.d("Accuracy-->", "Accuracy Changed");
         Log.d("Sensor Name-->", sensor.getName());
     }
@@ -108,98 +114,92 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public final void onSensorChanged(SensorEvent event) {
         // The light sensor returns a single value.
         // Many sensors return 3 values, one for each axis.
+        Log.d("Sensor Name",event.sensor.getName());
+        SensorData sd = new SensorData(event.sensor.getName(),event.accuracy,event.values[0],event.values[1],event.values[2]);
+        Log.d("Sensor Name", sd.getSensorName());
         Log.d("Inside","SensorChanged");
-        Log.d("Count", String.valueOf(count));
-        if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER) {
-            storeData(event,"Accel");
+        sensorD.add(sd);
+       if(event.sensor.getType()==Sensor.TYPE_ACCELEROMETER) {
+          //  storeData(event,"Accel");
+
+           count1++;
+           Log.d("count1", String.valueOf(count1));
+           if(count1==50){
+               mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
+               storeData();
+           }
         }
-       if( event.sensor.getType()==Sensor.TYPE_GYROSCOPE) {
-           Log.d("Gyroscope","Entered");
-           storeData(event, "Gyro");
-       }
+
+        if( event.sensor.getType()==Sensor.TYPE_GYROSCOPE){
+            Log.d("Gravity", "Entered");
+
+            count2++;
+            Log.d("count1", String.valueOf(count2));
+            if(count2==50){
+                mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
+                storeData();
+            }
+
+        }
+
         if( event.sensor.getType()==Sensor.TYPE_GRAVITY){
-            Log.d("Gravity","Entered");
-            storeData(event, "Grav");
+            Log.d("Gravity", "Entered");
+
+            count3++;
+            Log.d("count1", String.valueOf(count2));
+            if(count3==50){
+                mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
+                storeData();
+            }
+
         }
         if( event.sensor.getType()==Sensor.TYPE_LIGHT) {
-            Log.d("Light","Entered");
-            storeData(event, "Light");
+            Log.d("Light", "Entered");
+
+            count4++;
+            Log.d("count1", String.valueOf(count3));
+            if(count4==1){
+                mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT));
+                storeData();
+            }
+
         }
     }
 
-    public void storeData(SensorEvent event, String name){
-        DBHelper mHelper = new DBHelper(this,version);
-        SQLiteDatabase db = mHelper.getWritableDatabase();
-        String tableName = null;
-        if(name.equals("Accel")){
-            tableName = TableSchema.table.TABLE_NAME1;
-        }
-        if(name.equals("Gyro")){
-            tableName = TableSchema.table.TABLE_NAME2;
-        }
-        if(name.equals("Grav")){
-            tableName = TableSchema.table.TABLE_NAME3;
-        }
-        if(name.equals("Light")){
-            tableName = TableSchema.table.TABLE_NAME4;
-        }
+    public void storeData(){
 
-        float lux = event.values[0];
-        float luy = event.values[1];
-        float luz = event.values[2];
-        long time = event.timestamp;
-        int accuracy = event.accuracy;
-        Sensor sensor = event.sensor;
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    SQLiteDatabase db = mHelper.getWritableDatabase();
+                    String sensorName = null;
+                    Log.d("sensor", String.valueOf(sensorD.size()));
+                    for(int i=0;i<sensorD.size();i++) {
+                        ContentValues values = new ContentValues();
+                        values.put(TableSchema.table.COLUMN_NAME_SENSOR_NAME, sensorD.get(i).getSensorName());
+                        values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueX, sensorD.get(i).getX());
+                        values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueY, sensorD.get(i).getY());
+                        values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueZ, sensorD.get(i).getZ());
+                        values.put(TableSchema.table.COLUMN_NAME_Accuracy, sensorD.get(i).getAccuracy());
+                        long newRowId = db.insert(TableSchema.table.TABLE_NAME1, null, values);
+                        Log.d("RowID", String.valueOf(newRowId));
+                        Log.d("Sensor Value-->", String.valueOf(sensorD.get(i).getX()));
+                        Log.d("Sensor Accuracy-->", String.valueOf(sensorD.get(i).getY()));
+                        Log.d("Sensor time-->", String.valueOf(sensorD.get(i).getZ()));
+                        Log.d("Sensor Name-->",sensorD.get(i).getSensorName());
+                        sensorName=sensorD.get(i).getSensorName();
 
-        Log.d("Table Name===", tableName);
-
-        if(count==10)
-            count=0;
-
-        // Enter the first 10 sensor data only
-        if (count < 10) {
-            ContentValues values = new ContentValues();
-            values.put(TableSchema.table.COLUMN_NAME_ID, count++);
-            values.put(TableSchema.table.COLUMN_NAME_SENSOR_NAME, sensor.getName());
-            values.put(TableSchema.table.COLUMN_NAME_SENSOR_Time, time);
-            values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueX, lux);
-            values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueY, luy);
-            values.put(TableSchema.table.COLUMN_NAME_Sensor_ValueZ, luz);
-            values.put(TableSchema.table.COLUMN_NAME_Accuracy, accuracy);
-            long newRowId = db.insert(tableName, null, values);
-            Log.d("RowID", String.valueOf(newRowId));
-            Log.d("Sensor Value-->", String.valueOf(lux));
-            Log.d("Sensor Accuracy-->", String.valueOf(time));
-            Log.d("Sensor time-->", String.valueOf(accuracy));
-            Log.d("Sensor Name-->", sensor.getName());
-            if (count == 10)
-                iscount = true;
-        }
-        if(iscount)
-             readData(name);
+                    }
+                    db.close();
+                    readData(sensorName);
+                }
+            }).start();
     }
 
     public void readData(String name){
-        DBHelper mHelper = new DBHelper(this,version);
-        String tableName = null;
-        if(name.equals("Accel")){
-            tableName = TableSchema.table.TABLE_NAME1;
-        }
-        if(name.equals("Gyro")){
-            tableName = TableSchema.table.TABLE_NAME2;
-        }
-        if(name.equals("Grav")){
-            tableName = TableSchema.table.TABLE_NAME3;
-        }
-        if(name.equals("Light")){
-            tableName = TableSchema.table.TABLE_NAME4;
-        }
-        // To read the data from database whenever iscount = true
-        Log.d("Table Name===", tableName);
-            SQLiteDatabase db1 = mHelper.getReadableDatabase();
-            Log.d("Table Name-->>>", tableName);
-            Cursor res = db1.rawQuery("Select * from " + tableName + " where Id=1", null);
-            res.moveToFirst();
+        SQLiteDatabase db1 = mHelper.getReadableDatabase();
+        Cursor res = db1.rawQuery("Select * from " + TableSchema.table.TABLE_NAME1+ " where SensorName = '"+name+"' order by Id DESC LIMIT 1", null);
+        if(res.moveToFirst()) {
             if (res.getColumnCount() != 0) {
                 xi = res.getString(res.getColumnIndex("SensorValueX"));
                 Log.d("xi", String.valueOf(xi));
@@ -211,6 +211,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 Log.d("Avg", String.valueOf(avgi));
                 avg = String.valueOf(avgi);
                 iscount = false;
+                db1.close();
                 Intent intent = new Intent(this, Result.class);
                 intent.putExtra("X", xi);
                 intent.putExtra("Y", yi);
@@ -219,7 +220,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 startActivity(intent);
             } else
                 Log.d("------->", "Column Count 0");
-
+        }
+        else
+            Log.e("Error","No Data");
     }
 
     @Override
@@ -237,8 +240,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onStop() {
         super.onStop();
         mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
-        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
         mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
+        mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
         mSensorManager.unregisterListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT));
     }
 

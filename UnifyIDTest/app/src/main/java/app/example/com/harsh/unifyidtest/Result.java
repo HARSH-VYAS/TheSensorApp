@@ -26,11 +26,17 @@ public class Result extends AppCompatActivity {
         TextView Y =(TextView) findViewById(R.id.Y);
         TextView Z =(TextView) findViewById(R.id.Z);
         TextView AVG =(TextView) findViewById(R.id.avg);
+        if(x!=null && y!=null && z!=null && avg!=null){
+            X.setText(x);
+            Y.setText(y);
+            Z.setText(z);
+            AVG.setText(avg);
+        }
 
-        X.setText(x);
-        Y.setText(y);
-        Z.setText(z);
-        AVG.setText(avg);
+        else{
+            X.setText(x);
+        }
+
 
     }
 
